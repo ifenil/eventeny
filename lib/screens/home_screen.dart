@@ -1,55 +1,96 @@
 import 'package:flutter/material.dart';
-import '../models/event.dart';
-import '../services/api_service.dart'; // <-- import your ApiService here
+import 'package:provider/provider.dart';
+import '../core/constants/app_constants.dart';
+import '../providers/event_provider.dart';
+import '../widgets/error_widget.dart';
+import '../widgets/loading_widget.dart';
+import '../widgets/event_card.dart';
 import 'ticket_screen.dart';
 
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  @override
+  void initState() {
+    super.initState();
+    // Fetch events when the screen initializes
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<EventProvider>().fetchEvents();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Event Tickets')),
-      body: FutureBuilder<List<Event>>(
-        future: ApiService.fetchEvents(),  // fetch from backend
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          } else if (snapshot.hasError) {
-            return Center(child: Text('Error: ${snapshot.error}'));
-          } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-            return const Center(child: Text('No events found.'));
-          } else {
-            final events = snapshot.data!;
-            return ListView.builder(
-              itemCount: events.length,
-              itemBuilder: (context, index) {
-                final event = events[index];
-                return ListTile(
-                  title: Text(event.title),
-                  subtitle: Text('${event.location} • ${event.date.toLocal().toShortDateString()}'),
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => TicketScreen(
-                          eventId: event.id.toString(), // pass event ID as string
-                        ),
-                      ),
+      appBar: AppBar(
+        title: const Text(AppConstants.appName),
+        backgroundColor: Theme.of(context).primaryColor,
+        foregroundColor: Colors.white,
+        elevation: 0,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: () {
+              context.read<EventProvider>().refreshEvents();
+            },
+          ),
+        ],
+      ),
+      body: Consumer<EventProvider>(
+        builder: (context, eventProvider, child) {
+          switch (eventProvider.state) {
+            case EventState.initial:
+            case EventState.loading:
+              return const AppLoadingWidget(
+                message: 'Loading events...',
+              );
+
+            case EventState.error:
+              return AppErrorWidget(
+                message: eventProvider.errorMessage ?? AppConstants.unknownError,
+                onRetry: () => eventProvider.refreshEvents(),
+              );
+
+            case EventState.loaded:
+              if (!eventProvider.hasEvents) {
+                return AppErrorWidget(
+                  message: AppConstants.noEventsFound,
+                  icon: Icons.event_busy,
+                  onRetry: () => eventProvider.refreshEvents(),
+                );
+              }
+
+              return RefreshIndicator(
+                onRefresh: () async {
+                  await eventProvider.fetchEvents();
+                },
+                child: ListView.builder(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  itemCount: eventProvider.events.length,
+                  itemBuilder: (context, index) {
+                    final event = eventProvider.events[index];
+                    return EventCard(
+                      event: event,
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => TicketScreen(eventId: event.id.toString()),
+                          ),
+                        );
+                      },
                     );
                   },
-                );
-              },
-            );
+                ),
+              );
           }
         },
       ),
     );
-  }
-}
-
-extension DateFormatting on DateTime {
-  String toShortDateString() {
-    return "${this.month}/${this.day}/${this.year}";
   }
 }
