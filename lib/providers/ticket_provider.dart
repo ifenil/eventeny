@@ -21,48 +21,73 @@ class TicketProvider with ChangeNotifier {
   bool get hasTickets => _tickets.isNotEmpty;
 
   Future<void> fetchTickets(String eventId) async {
+    print('TicketProvider: Starting to fetch tickets for eventId: $eventId');
     _setState(TicketState.loading);
     _clearError();
     _currentEventId = eventId;
 
     try {
+      print('TicketProvider: Calling API service...');
       final tickets = await ApiService.fetchTickets(eventId);
+      print('TicketProvider: Received ${tickets.length} tickets from API');
+      
+      // Debug: Print each ticket's details
+      for (int i = 0; i < tickets.length; i++) {
+        final ticket = tickets[i];
+        print('TicketProvider: Ticket $i - ID: ${ticket.id}, Title: ${ticket.title}, IsActive: ${ticket.isActive}, Available: ${ticket.availableQuantity}, IsSoldOut: ${ticket.isSoldOut}');
+      }
+      
       _tickets = tickets;
       _setState(TicketState.loaded);
     } catch (e) {
+      print('TicketProvider: Error occurred: $e');
       _handleError(e);
     }
   }
 
   void refreshTickets() {
     if (_currentEventId != null) {
+      print('TicketProvider: Refreshing tickets for eventId: $_currentEventId');
       fetchTickets(_currentEventId!);
+    } else {
+      print('TicketProvider: Cannot refresh - no current event ID');
     }
   }
 
   List<Ticket> getAvailableTickets() {
-    return _tickets.where((ticket) => !ticket.isSoldOut && ticket.isActive).toList();
+    final available = _tickets.where((ticket) {
+      final isAvailable = !ticket.isSoldOut && ticket.isActive;
+      print('TicketProvider: Checking ticket ${ticket.id} - IsSoldOut: ${ticket.isSoldOut}, IsActive: ${ticket.isActive}, IsAvailable: $isAvailable');
+      return isAvailable;
+    }).toList();
+    print('TicketProvider: Found ${available.length} available tickets');
+    return available;
   }
 
   List<Ticket> getSoldOutTickets() {
-    return _tickets.where((ticket) => ticket.isSoldOut).toList();
+    final soldOut = _tickets.where((ticket) => ticket.isSoldOut).toList();
+    print('TicketProvider: Found ${soldOut.length} sold out tickets');
+    return soldOut;
   }
 
   Ticket? getTicketById(int id) {
     try {
       return _tickets.firstWhere((ticket) => ticket.id == id);
     } catch (e) {
+      print('TicketProvider: Ticket with id $id not found');
       return null;
     }
   }
 
   void clearTickets() {
+    print('TicketProvider: Clearing tickets');
     _tickets = [];
     _currentEventId = null;
     _setState(TicketState.initial);
   }
 
   void _setState(TicketState newState) {
+    print('TicketProvider: State changing from $_state to $newState');
     _state = newState;
     notifyListeners();
   }
@@ -72,10 +97,11 @@ class TicketProvider with ChangeNotifier {
   }
 
   void _handleError(dynamic error) {
+    print('TicketProvider: Handling error: $error');
     if (error is AppException) {
       _errorMessage = error.message;
     } else {
-      _errorMessage = 'An unexpected error occurred';
+      _errorMessage = 'An unexpected error occurred: $error';
     }
     _setState(TicketState.error);
   }
