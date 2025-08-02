@@ -6,7 +6,7 @@ class AppConstants {
   static const String purchaseEndpoint = '/purchase_ticket.php';
   
   // App Configuration
-  static const String appName = 'Eventeny';
+  static const String appName = 'Eventing';
   
   // UI Constants
   static const double defaultPadding = 16.0;

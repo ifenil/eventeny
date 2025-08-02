@@ -32,14 +32,6 @@ class _HomeScreenState extends State<HomeScreen> {
         backgroundColor: Theme.of(context).primaryColor,
         foregroundColor: Colors.white,
         elevation: 0,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: () {
-              context.read<EventProvider>().refreshEvents();
-            },
-          ),
-        ],
       ),
       body: Consumer<EventProvider>(
         builder: (context, eventProvider, child) {
@@ -49,28 +41,24 @@ class _HomeScreenState extends State<HomeScreen> {
               return const AppLoadingWidget(
                 message: 'Loading events...',
               );
-
             case EventState.error:
               return AppErrorWidget(
                 message: eventProvider.errorMessage ?? AppConstants.unknownError,
                 onRetry: () => eventProvider.refreshEvents(),
               );
-
             case EventState.loaded:
               if (!eventProvider.hasEvents) {
                 return AppErrorWidget(
                   message: AppConstants.noEventsFound,
-                  icon: Icons.event_busy,
+                  icon: Icons.event,
                   onRetry: () => eventProvider.refreshEvents(),
                 );
               }
-
               return RefreshIndicator(
                 onRefresh: () async {
                   await eventProvider.fetchEvents();
                 },
                 child: ListView.builder(
-                  padding: const EdgeInsets.symmetric(vertical: 8),
                   itemCount: eventProvider.events.length,
                   itemBuilder: (context, index) {
                     final event = eventProvider.events[index];
@@ -80,7 +68,9 @@ class _HomeScreenState extends State<HomeScreen> {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (_) => TicketScreen(eventId: event.id.toString()),
+                            builder: (_) => TicketScreen(
+                              eventId: event.id.toString(),
+                            ),
                           ),
                         );
                       },

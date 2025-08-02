@@ -127,6 +127,7 @@ class TicketProvider with ChangeNotifier {
   }
 
   void clearTickets() {
+    print('TicketProvider: Clearing tickets');
     _tickets = [];
     _state = TicketState.initial;
     _errorMessage = null;

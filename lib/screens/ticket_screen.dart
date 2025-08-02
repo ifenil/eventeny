@@ -49,15 +49,6 @@ class _TicketScreenState extends State<TicketScreen> {
         backgroundColor: Theme.of(context).primaryColor,
         foregroundColor: Colors.white,
         elevation: 0,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: () {
-              print('Manual refresh triggered for eventId: ${widget.eventId}');
-              context.read<TicketProvider>().refreshTickets();
-            },
-          ),
-        ],
       ),
       body: Builder(
         builder: (context) {
