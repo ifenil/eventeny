@@ -3,106 +3,135 @@ import '../core/errors/app_exceptions.dart';
 import '../models/ticket.dart';
 import '../services/api_service.dart';
 
-enum TicketState { initial, loading, loaded, error }
+enum TicketState { initial, loading, loaded, error, purchasing }
 
 class TicketProvider with ChangeNotifier {
   TicketState _state = TicketState.initial;
   List<Ticket> _tickets = [];
   String? _errorMessage;
   String? _currentEventId;
+  bool _isPurchasing = false;
 
+  // Getters
   TicketState get state => _state;
   List<Ticket> get tickets => _tickets;
   String? get errorMessage => _errorMessage;
-  String? get currentEventId => _currentEventId;
-
-  bool get isLoading => _state == TicketState.loading;
-  bool get hasError => _state == TicketState.error;
   bool get hasTickets => _tickets.isNotEmpty;
+  bool get isPurchasing => _isPurchasing;
 
   Future<void> fetchTickets(String eventId) async {
-    print('TicketProvider: Starting to fetch tickets for eventId: $eventId');
-    _setState(TicketState.loading);
-    _clearError();
-    _currentEventId = eventId;
-
     try {
+      print('TicketProvider: Starting to fetch tickets for eventId: $eventId');
+      _state = TicketState.loading;
+      _errorMessage = null;
+      _currentEventId = eventId;
+      notifyListeners();
+
       print('TicketProvider: Calling API service...');
       final tickets = await ApiService.fetchTickets(eventId);
-      print('TicketProvider: Received ${tickets.length} tickets from API');
       
-      // Debug: Print each ticket's details
-      for (int i = 0; i < tickets.length; i++) {
-        final ticket = tickets[i];
+      print('TicketProvider: Received ${tickets.length} tickets from API');
+      _tickets = tickets;
+      
+      // Debug logging for each ticket
+      for (int i = 0; i < _tickets.length; i++) {
+        final ticket = _tickets[i];
         print('TicketProvider: Ticket $i - ID: ${ticket.id}, Title: ${ticket.title}, IsActive: ${ticket.isActive}, Available: ${ticket.availableQuantity}, IsSoldOut: ${ticket.isSoldOut}');
       }
       
-      _tickets = tickets;
-      _setState(TicketState.loaded);
+      _state = TicketState.loaded;
+      notifyListeners();
     } catch (e) {
-      print('TicketProvider: Error occurred: $e');
-      _handleError(e);
+      print('TicketProvider: Error fetching tickets: $e');
+      _errorMessage = e.toString();
+      _state = TicketState.error;
+      notifyListeners();
     }
   }
 
-  void refreshTickets() {
+  Future<void> refreshTickets() async {
     if (_currentEventId != null) {
-      print('TicketProvider: Refreshing tickets for eventId: $_currentEventId');
-      fetchTickets(_currentEventId!);
-    } else {
-      print('TicketProvider: Cannot refresh - no current event ID');
+      await fetchTickets(_currentEventId!);
+    }
+  }
+
+  Future<bool> purchaseTicket(Ticket ticket, int quantity) async {
+    try {
+      print('TicketProvider: Starting purchase for ticket ${ticket.id}, quantity: $quantity');
+      _isPurchasing = true;
+      notifyListeners();
+
+      final result = await ApiService.purchaseTicket(ticket.id, quantity);
+      
+      // Check if the response indicates success
+      if (result['success'] == true) {
+        print('TicketProvider: Purchase successful, updating ticket quantity');
+        
+        // Update the ticket quantity locally
+        final updatedTicket = ticket.copyWith(
+          availableQuantity: result['available_quantity'] ?? ticket.availableQuantity - quantity,
+        );
+        
+        // Find and update the ticket in the list
+        final index = _tickets.indexWhere((t) => t.id == ticket.id);
+        if (index != -1) {
+          _tickets[index] = updatedTicket;
+          print('TicketProvider: Updated ticket ${ticket.id} quantity to ${updatedTicket.availableQuantity}');
+        }
+        
+        notifyListeners();
+        return true;
+      } else {
+        print('TicketProvider: Purchase failed - no success flag in response');
+        _errorMessage = 'Purchase failed - unexpected response';
+        return false;
+      }
+    } catch (e) {
+      print('TicketProvider: Error purchasing ticket: $e');
+      _errorMessage = e.toString();
+      return false;
+    } finally {
+      _isPurchasing = false;
+      notifyListeners();
     }
   }
 
   List<Ticket> getAvailableTickets() {
-    final available = _tickets.where((ticket) {
-      final isAvailable = !ticket.isSoldOut && ticket.isActive;
-      print('TicketProvider: Checking ticket ${ticket.id} - IsSoldOut: ${ticket.isSoldOut}, IsActive: ${ticket.isActive}, IsAvailable: $isAvailable');
-      return isAvailable;
-    }).toList();
-    print('TicketProvider: Found ${available.length} available tickets');
-    return available;
+    final availableTickets = _tickets.where((ticket) => 
+      ticket.isActive && !ticket.isSoldOut
+    ).toList();
+    
+    print('TicketProvider: Found ${availableTickets.length} available tickets');
+    for (final ticket in availableTickets) {
+      print('TicketProvider: Checking ticket ${ticket.id} - IsSoldOut: ${ticket.isSoldOut}, IsActive: ${ticket.isActive}, IsAvailable: ${!ticket.isSoldOut}');
+    }
+    
+    return availableTickets;
   }
 
   List<Ticket> getSoldOutTickets() {
-    final soldOut = _tickets.where((ticket) => ticket.isSoldOut).toList();
-    print('TicketProvider: Found ${soldOut.length} sold out tickets');
-    return soldOut;
+    final soldOutTickets = _tickets.where((ticket) => 
+      ticket.isActive && ticket.isSoldOut
+    ).toList();
+    
+    print('TicketProvider: Found ${soldOutTickets.length} sold out tickets');
+    return soldOutTickets;
   }
 
   Ticket? getTicketById(int id) {
     try {
       return _tickets.firstWhere((ticket) => ticket.id == id);
     } catch (e) {
-      print('TicketProvider: Ticket with id $id not found');
       return null;
     }
   }
 
   void clearTickets() {
-    print('TicketProvider: Clearing tickets');
     _tickets = [];
-    _currentEventId = null;
-    _setState(TicketState.initial);
-  }
-
-  void _setState(TicketState newState) {
-    print('TicketProvider: State changing from $_state to $newState');
-    _state = newState;
-    notifyListeners();
-  }
-
-  void _clearError() {
+    _state = TicketState.initial;
     _errorMessage = null;
-  }
-
-  void _handleError(dynamic error) {
-    print('TicketProvider: Handling error: $error');
-    if (error is AppException) {
-      _errorMessage = error.message;
-    } else {
-      _errorMessage = 'An unexpected error occurred: $error';
-    }
-    _setState(TicketState.error);
+    _currentEventId = null;
+    _isPurchasing = false;
+    notifyListeners();
   }
 } 

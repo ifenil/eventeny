@@ -25,7 +25,6 @@ class Event {
 
   factory Event.fromJson(Map<String, dynamic> json) {
     try {
-      // Handle multiple images
       List<String> imageUrls = [];
       
       // Check for image_urls array first (new format)

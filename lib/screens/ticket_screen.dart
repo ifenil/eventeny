@@ -108,6 +108,11 @@ class _TicketScreenState extends State<TicketScreen> {
           message: 'Loading tickets...',
         );
 
+      case TicketState.purchasing:
+        return const AppLoadingWidget(
+          message: 'Processing purchase...',
+        );
+
       case TicketState.error:
         print('TicketScreen error: ${ticketProvider.errorMessage}');
         return AppErrorWidget(
@@ -334,52 +339,194 @@ class _TicketScreenState extends State<TicketScreen> {
   }
 
   void _showPurchaseDialog(Ticket ticket) {
+    int selectedQuantity = 1;
+    final maxQuantity = ticket.availableQuantity;
+    
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text('Purchase ${ticket.title}'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Price: \$${ticket.price.toStringAsFixed(2)}'),
-            const SizedBox(height: 8),
-            Text('Available: ${ticket.availableQuantity}'),
-            if (ticket.hasLimitedAvailability) ...[
-              const SizedBox(height: 8),
-              Text(
-                '⚠️ Limited availability',
-                style: TextStyle(
-                  color: Colors.orange[700],
-                  fontWeight: FontWeight.w500,
-                ),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) {
+          return AlertDialog(
+            title: Text('Purchase ${ticket.title}'),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Price: \$${ticket.price.toStringAsFixed(2)}'),
+                  const SizedBox(height: 8),
+                  Text('Available: ${ticket.availableQuantity}'),
+                  if (ticket.hasLimitedAvailability) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      '⚠️ Limited availability',
+                      style: TextStyle(
+                        color: Colors.orange[700],
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 16),
+                  Text(
+                    'Quantity:',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      IconButton(
+                        onPressed: selectedQuantity > 1 
+                            ? () => setState(() => selectedQuantity--)
+                            : null,
+                        icon: const Icon(Icons.remove_circle_outline),
+                        iconSize: 32,
+                        color: selectedQuantity > 1 
+                            ? Theme.of(context).primaryColor 
+                            : Colors.grey[400],
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: Colors.grey[300]!),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          '$selectedQuantity',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 18,
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: selectedQuantity < maxQuantity 
+                            ? () => setState(() => selectedQuantity++)
+                            : null,
+                        icon: const Icon(Icons.add_circle_outline),
+                        iconSize: 32,
+                        color: selectedQuantity < maxQuantity 
+                            ? Theme.of(context).primaryColor 
+                            : Colors.grey[400],
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Total:',
+                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        Text(
+                          '\$${(selectedQuantity * ticket.price).toStringAsFixed(2)}',
+                          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: Theme.of(context).primaryColor,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: () async {
+                  Navigator.pop(context);
+                  await _purchaseTicket(ticket, selectedQuantity);
+                },
+                child: const Text('Purchase'),
               ),
             ],
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              _showSuccessMessage(ticket);
-            },
-            child: const Text('Purchase'),
-          ),
-        ],
+          );
+        },
       ),
     );
   }
 
-  void _showSuccessMessage(Ticket ticket) {
+  Future<void> _purchaseTicket(Ticket ticket, int quantity) async {
+    final ticketProvider = context.read<TicketProvider>();
+    
+    // Show loading dialog
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const AlertDialog(
+        content: Row(
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(width: 16),
+            Text('Processing purchase...'),
+          ],
+        ),
+      ),
+    );
+
+    try {
+      final success = await ticketProvider.purchaseTicket(ticket, quantity);
+      
+      // Close loading dialog
+      Navigator.pop(context);
+      
+      if (success) {
+        _showSuccessMessage(ticket, quantity);
+      } else {
+        _showErrorMessage(ticketProvider.errorMessage ?? 'Purchase failed');
+      }
+    } catch (e) {
+      // Close loading dialog
+      Navigator.pop(context);
+      _showErrorMessage('An error occurred: $e');
+    }
+  }
+
+  void _showSuccessMessage(Ticket ticket, int quantity) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('Successfully purchased ${ticket.title}!'),
+        content: Text(
+          quantity > 1 
+              ? 'Successfully purchased $quantity ${ticket.title} tickets!' 
+              : 'Successfully purchased ${ticket.title}!'
+        ),
         backgroundColor: Colors.green,
         behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 3),
+        action: SnackBarAction(
+          label: 'OK',
+          textColor: Colors.white,
+          onPressed: () {
+            ScaffoldMessenger.of(context).hideCurrentSnackBar();
+          },
+        ),
+      ),
+    );
+  }
+
+  void _showErrorMessage(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.red,
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 4),
         action: SnackBarAction(
           label: 'OK',
           textColor: Colors.white,

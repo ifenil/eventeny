@@ -5,13 +5,11 @@ import '../models/ticket.dart';
 class TicketCard extends StatelessWidget {
   final Ticket ticket;
   final VoidCallback? onPurchase;
-  final int? selectedQuantity;
 
   const TicketCard({
     super.key,
     required this.ticket,
     this.onPurchase,
-    this.selectedQuantity,
   });
 
   @override
@@ -29,7 +27,7 @@ class TicketCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(AppConstants.defaultRadius),
         side: BorderSide(
           color: hasLimitedAvailability 
-              ? Colors.orange.withValues(alpha: 0.3)
+              ? Colors.orange.withValues(alpha: 0.3) 
               : Colors.grey.withValues(alpha: 0.1),
           width: 1,
         ),
@@ -43,7 +41,7 @@ class TicketCard extends StatelessWidget {
                   end: Alignment.bottomRight,
                   colors: [
                     Colors.orange.withValues(alpha: 0.05),
-                    Colors.white,
+                    Colors.orange.withValues(alpha: 0.02),
                   ],
                 )
               : null,
@@ -53,72 +51,56 @@ class TicketCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Header with title and price
+              // Title and Type Row
               Row(
                 children: [
                   Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          ticket.title,
-                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 18,
-                          ),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        const SizedBox(height: 4),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Text(
-                            ticket.type,
-                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: Theme.of(context).primaryColor,
-                              fontWeight: FontWeight.w600,
-                              fontSize: 12,
-                            ),
-                          ),
-                        ),
-                      ],
+                    child: Text(
+                      ticket.title,
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Text(
-                        '\$${ticket.price.toStringAsFixed(2)}',
-                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: Theme.of(context).primaryColor,
-                          fontSize: 24,
-                        ),
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      ticket.type,
+                      style: TextStyle(
+                        color: Theme.of(context).primaryColor,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
                       ),
-                      if (selectedQuantity != null && selectedQuantity! > 0)
-                        Text(
-                          'Total: \$${(ticket.price * selectedQuantity!).toStringAsFixed(2)}',
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: Colors.grey[600],
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                    ],
+                    ),
                   ),
                 ],
               ),
               
+              const SizedBox(height: 8),
+              
+              // Price
+              Text(
+                '\$${ticket.price.toStringAsFixed(2)}',
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  color: Theme.of(context).primaryColor,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              
               // Description
               if (ticket.description != null && ticket.description!.isNotEmpty) ...[
-                const SizedBox(height: 12),
+                const SizedBox(height: 8),
                 Text(
                   ticket.description!,
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Colors.grey[700],
+                    color: Colors.grey[600],
                     height: 1.4,
                   ),
                   maxLines: 2,
@@ -126,9 +108,9 @@ class TicketCard extends StatelessWidget {
                 ),
               ],
               
-              const SizedBox(height: 16),
+              const SizedBox(height: 12),
               
-              // Availability and status
+              // Availability Row
               Row(
                 children: [
                   Icon(
@@ -137,54 +119,55 @@ class TicketCard extends StatelessWidget {
                     color: Colors.grey[600],
                   ),
                   const SizedBox(width: 6),
-                  Text(
-                    '${ticket.availableQuantity} available',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: hasLimitedAvailability ? Colors.orange[700] : Colors.grey[600],
-                      fontWeight: hasLimitedAvailability ? FontWeight.w600 : FontWeight.normal,
+                  Expanded(
+                    child: Text(
+                      '${ticket.availableQuantity} available',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Colors.grey[600],
+                      ),
                     ),
                   ),
                   if (hasLimitedAvailability) ...[
-                    const SizedBox(width: 8),
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                       decoration: BoxDecoration(
-                        color: Colors.orange[100],
+                        color: Colors.orange.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Text(
                         'Limited',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        style: TextStyle(
                           color: Colors.orange[700],
-                          fontWeight: FontWeight.w600,
                           fontSize: 10,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
                     ),
                   ],
-                  const Spacer(),
-                  if (isSoldOut)
+                  if (isSoldOut) ...[
+                    const SizedBox(width: 8),
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
-                        color: Colors.red[100],
+                        color: Colors.red.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Text(
                         'Sold Out',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        style: TextStyle(
                           color: Colors.red[700],
+                          fontSize: 12,
                           fontWeight: FontWeight.w600,
-                          fontSize: 10,
                         ),
                       ),
                     ),
+                  ],
                 ],
               ),
               
               const SizedBox(height: 16),
               
-              // Purchase button
+              // Purchase Button
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
@@ -192,9 +175,9 @@ class TicketCard extends StatelessWidget {
                   style: ElevatedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     backgroundColor: isSoldOut 
-                        ? Colors.grey[300]
-                        : hasLimitedAvailability
-                            ? Colors.orange[600]
+                        ? Colors.grey[300] 
+                        : hasLimitedAvailability 
+                            ? Colors.orange[600] 
                             : Theme.of(context).primaryColor,
                     foregroundColor: isSoldOut ? Colors.grey[600] : Colors.white,
                     shape: RoundedRectangleBorder(
