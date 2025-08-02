@@ -32,9 +32,15 @@ class Ticket {
         type: json['type']?.toString() ?? '',
         price: double.parse(json['price'].toString()),
         quantity: int.parse(json['quantity'].toString()),
-        availableQuantity: int.parse(json['available_quantity']?.toString() ?? json['quantity'].toString()),
+        // Use quantity as availableQuantity if available_quantity doesn't exist
+        availableQuantity: json['available_quantity'] != null 
+            ? int.parse(json['available_quantity'].toString())
+            : int.parse(json['quantity'].toString()),
         description: json['description']?.toString(),
-        isActive: json['is_active'] ?? true,
+        // Handle is_active as string "1"/"0" or boolean
+        isActive: json['is_active'] == null ? true : 
+                 json['is_active'] is bool ? json['is_active'] : 
+                 json['is_active'].toString() == '1' || json['is_active'].toString().toLowerCase() == 'true',
       );
     } catch (e) {
       throw ValidationException('Invalid ticket data format: $e');
@@ -94,6 +100,6 @@ class Ticket {
 
   @override
   String toString() {
-    return 'Ticket(id: $id, title: $title, type: $type, price: $price, available: $availableQuantity)';
+    return 'Ticket(id: $id, title: $title, type: $type, price: $price, available: $availableQuantity, isActive: $isActive)';
   }
 }
